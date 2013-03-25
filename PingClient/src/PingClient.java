@@ -30,6 +30,10 @@ public class PingClient {
 		
 		int sequence_number;
 		
+		long minDelay = 0;
+        long maxDelay = 0;
+        long averageDelay = 0;
+		
 		// Processing loop
 		for (sequence_number = 0; sequence_number < 10; sequence_number++) {
 			// Get timestamp
@@ -64,13 +68,23 @@ public class PingClient {
 		        currentTime = new Date();
 		        long msReceived = currentTime.getTime();
 		        
+		        long delay = msReceived - msSend;
+		        
+		        if (sequence_number == 0) {
+		        	minDelay = delay;
+		        	maxDelay = delay;
+		        }
+		        
+		        
+		        
 		        // Print the packet and the delay
-		        printData(response, sequence_number, msReceived - msSend);
+		        printData(response, sequence_number, delay);
 			} catch (IOException e) {
 				// Print which packet has timeout
 				System.out.println("Timeout for packet " + sequence_number);
 			}
 		}
+		socket.close();
 	}
 		
 	/* 
