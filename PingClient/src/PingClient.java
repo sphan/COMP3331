@@ -95,13 +95,14 @@ public class PingClient {
 		BufferedReader br = new BufferedReader(isr);
 		
 		// The message data is contained in a single line, so read this line.
-//		String line = br.readLine();
+		String line = br.readLine();
 		
 		// Print host address and data received from it.
 		System.out.println(
 		"ping to " + 
-		request.getAddress().getHostAddress() + 
-		", seq = " + sequence +
+		request.getAddress().getHostAddress() + ": " +
+		new String(line) + "\n" +
+		"seq = " + sequence +
 		", rtt = " + delayTime + " ms");
 	}
 }
