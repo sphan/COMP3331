@@ -36,9 +36,11 @@ public class PingClient {
 			Date currentTime = new Date();
 			long msSend = currentTime.getTime();
 			
+			
 			// Create string to send, and transfer i to a Byte Array
 			String str = "PING " + sequence_number + " " + msSend + " \n";
-			byte[] buffer = str.getBytes();
+			byte[] buffer = new byte[1024];
+			buffer = str.getBytes();
 			
 			// Create a Ping datagram to the specified server
 			DatagramPacket ping = new DatagramPacket(buffer, buffer.length, server, port);
@@ -63,7 +65,7 @@ public class PingClient {
 		        long msReceived = currentTime.getTime();
 		        
 		        // Print the packet and the delay
-		        printData(response, msReceived - msSend);
+		        printData(response, sequence_number, msReceived - msSend);
 			} catch (IOException e) {
 				// Print which packet has timeout
 				System.out.println("Timeout for packet " + sequence_number);
@@ -75,7 +77,7 @@ public class PingClient {
 	 * Print ping data to the standard output stream.
 	 * slightly changed from PingServer
 	 */
-	private static void printData(DatagramPacket request, long delayTime) throws Exception{
+	private static void printData(DatagramPacket request, int sequence, long delayTime) throws Exception{
 		// Obtain references to the packet's array of bytes.
 		byte[] buf = request.getData();
 		
@@ -93,13 +95,13 @@ public class PingClient {
 		BufferedReader br = new BufferedReader(isr);
 		
 		// The message data is contained in a single line, so read this line.
-		String line = br.readLine();
+//		String line = br.readLine();
 		
 		// Print host address and data received from it.
 		System.out.println(
-		"Received from " + 
+		"ping to " + 
 		request.getAddress().getHostAddress() + 
-		": " +
-		new String(line) + " Delay: " + delayTime );
+		", seq = " + sequence +
+		", rtt = " + delayTime + " ms");
 	}
 }
