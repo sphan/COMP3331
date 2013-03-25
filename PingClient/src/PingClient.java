@@ -55,7 +55,7 @@ public class PingClient {
 			// Try to receive the packet
 			// Fail when timeout
 			try {
-				// Set the timeout to 1000ms = 1 sec specified
+				// Set the timeout to 1000ms = 1 second specified
 				socket.setSoTimeout(TIME_OUT);
 				
 				// Create a datagram packet to hold incoming UDP packet.
@@ -75,6 +75,14 @@ public class PingClient {
 		        	maxDelay = delay;
 		        }
 		        
+		        // Calculate minimum delay and maximum delay.
+		        if (delay < minDelay)
+		        	minDelay = delay;
+		        else if (delay > maxDelay)
+		        	maxDelay = delay;
+		        
+		        // Calculate average delay.
+		        averageDelay += delay / (sequence_number + 1);
 		        
 		        
 		        // Print the packet and the delay
@@ -84,6 +92,9 @@ public class PingClient {
 				System.out.println("Timeout for packet " + sequence_number);
 			}
 		}
+		System.out.println("min rtt = " + minDelay + " ms" +
+						", max rtt = " + maxDelay + " ms" +
+						", average rtt = " + averageDelay + " ms");
 		socket.close();
 	}
 		
