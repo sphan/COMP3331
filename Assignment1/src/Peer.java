@@ -16,7 +16,7 @@ public class Peer {
 		this.identity = aIdentity;
 		this.portNumber = this.portNumber + aIdentity;
 		socket = new DatagramSocket();
-		this.pinger = new Pinger(socket);
+		this.pinger = new Pinger();
 	}
 
 	/**
@@ -50,7 +50,7 @@ public class Peer {
 	 * @throws Exception 
 	 */
 	public void setSecondSuccessor(int aIdentity) throws Exception {
-		this.secondSuccessor = new Peer(identity);
+		this.secondSuccessor = new Peer(aIdentity);
 	}
 	
 	/**
@@ -69,6 +69,18 @@ public class Peer {
 	 */
 	public Peer getSecondSuccessor() {
 		return this.secondSuccessor;
+	}
+	
+	public Peer findSuccessor(int id) {
+		if (id == firstSuccessor.getName())
+			return firstSuccessor;
+		else if (id == secondSuccessor.getName())
+			return secondSuccessor;
+		return null;
+	}
+	
+	public Pinger getPinger() {
+		return pinger;
 	}
 	
 	/**
@@ -90,4 +102,5 @@ public class Peer {
 	private Peer secondSuccessor;
 	private DatagramSocket socket;
 	private Pinger pinger;
+	
 }

@@ -7,65 +7,51 @@ import java.util.regex.Pattern;
 
 public class Pinger {
 	
-	public Pinger(DatagramSocket aSocket) {
-		this.requestMessage = "Are you still alive, Peer ";
-		this.requestResponseMessage = "A ping request message was received from Peer ";
-		this.responseMessage = "I'm still alive, Peer ";
-		this.responseResponseMessage = "A ping response message was received from Peer ";
-		this.socket = aSocket;
+	public Pinger() {
+		msg = "";
 	}
-
-	public void sendRequestMessage(Peer receiver) throws Exception {
+	
+	public void sendMessage(DatagramSocket mySocket, Peer receiver, String messageType) throws Exception {
 		int port = receiver.getPortNumber();
 		byte[] buffer = new byte[1024];
-		requestMessage = requestMessage + receiver.getName() + ".";
-		buffer = requestMessage.getBytes();
-
+		
+		if (messageType.equalsIgnoreCase("Request")) {
+			msg ="This is a request message, Peer ";
+		} else if (messageType.equalsIgnoreCase("Response")) {
+			msg = "This is a response message, Peer ";
+		}
+		
+		msg +=  receiver.getName() + ".";
+		
+		buffer = msg.getBytes();
+		
 		InetAddress server = InetAddress.getByName(Integer.toString(receiver.getName()));
 		DatagramPacket ping = new DatagramPacket(buffer, buffer.length, server, port);
 		
-		socket.send(ping);
+		mySocket.send(ping);
 	}
 	
-	public void sendResponseMessage(Peer receiver) throws Exception {
-		int port = receiver.getPortNumber();
-		byte[] buffer = new byte[1024];
-		responseMessage = responseMessage + receiver.getName() + ".";
-		buffer = responseMessage.getBytes();
+	public void receiveMessage(DatagramSocket mySocket, Peer me) throws Exception {
+		DatagramPacket response = new DatagramPacket(new byte[1024], 1024);
+		int clientId = 0;
 
-		InetAddress server = InetAddress.getByName(Integer.toString(receiver.getName()));
-		DatagramPacket ping = new DatagramPacket(buffer, buffer.length, server, port);
-		
-		socket.send(ping);
-	}
-	
-	public void receiveRequestMessage() throws Exception {
-		DatagramPacket response = new DatagramPacket(new byte[1024], 1024);
-		socket.receive(response);
-		int senderId = 0;
+		mySocket.receive(response);
+		String message = response.toString();
 		
 		Pattern p = Pattern.compile("\\d");
-		Matcher m = p.matcher(response.toString());
+		Matcher m = p.matcher(message);
 		while (m.find())
-			senderId = Integer.parseInt(m.group());
-		System.out.println(requestResponseMessage + senderId + ".");
-	}
-	
-	public void receiveResponseMessage() throws Exception {
-		DatagramPacket response = new DatagramPacket(new byte[1024], 1024);
-		socket.receive(response);
-		int senderId = 0;
+			clientId = m.groupCount();
+		Peer client = me.findSuccessor(clientId);
 		
-		Pattern p = Pattern.compile("\\d");
-		Matcher m = p.matcher(response.toString());
-		while (m.find())
-			senderId = Integer.parseInt(m.group());
-		System.out.println(responseResponseMessage + senderId + ".");
+		if (message.contains("request")) {
+			System.out.println("A ping request message was received from Peer " + 
+					clientId + ".");
+			me.getPinger().sendMessage(mySocket, client, "response");
+		} else if (message.contains("response")) {
+			msg = "A ping response message was received from Peer " + clientId + ".";
+		}
 	}
 	
-	private String requestMessage;
-	private String requestResponseMessage;
-	private String responseMessage;
-	private String responseResponseMessage;
-	private DatagramSocket socket;
+	private String msg;
 }
