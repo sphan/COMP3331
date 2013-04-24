@@ -25,7 +25,7 @@ public class Pinger {
 		
 		buffer = msg.getBytes();
 		
-		InetAddress server = InetAddress.getByName(Integer.toString(receiver.getName()));
+		InetAddress server = InetAddress.getByName("127.0.0.1");
 		DatagramPacket ping = new DatagramPacket(buffer, buffer.length, server, port);
 		
 		mySocket.send(ping);
