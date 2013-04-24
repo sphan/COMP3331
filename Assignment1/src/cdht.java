@@ -27,6 +27,7 @@ public class cdht {
 					try {
 						peer.getPinger().sendMessage(peer.getSocket(), 
 								peer.getFirstSuccessor(), "request");
+						peer.getPinger().receiveMessage(peer.getSocket(), peer);
 						System.out.println("My port number is " + peer.getPortNumber());
 					} catch (Exception e) {
 						System.out.println("Could not send ping message.");
@@ -34,7 +35,6 @@ public class cdht {
 					}
 				}				
 			}, 0, PING_INTERVAL);
-			peer.getPinger().receiveMessage(peer.getSocket(), peer);
 		}
 	}
 	
