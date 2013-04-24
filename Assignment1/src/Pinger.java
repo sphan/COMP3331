@@ -23,12 +23,16 @@ public class Pinger {
 		
 		msg +=  receiver.getName() + ".";
 		
+		System.out.println("Sending message.");
+		
 		buffer = msg.getBytes();
 		
 		InetAddress server = InetAddress.getByName("127.0.0.1");
 		DatagramPacket ping = new DatagramPacket(buffer, buffer.length, server, port);
 		
 		mySocket.send(ping);
+		
+		System.out.println("Message sent.");
 	}
 	
 	public void receiveMessage(DatagramSocket mySocket, Peer me) throws Exception {
