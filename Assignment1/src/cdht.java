@@ -16,6 +16,7 @@ public class cdht {
 		System.out.println("I am " + peer.getName());
 		System.out.println("My first successor is " + peer.getFirstSuccessor().getName());
 		System.out.println("My second successor is " + peer.getSecondSuccessor().getName());
+		System.out.println("My port number is " + peer.getPortNumber());
 		
 		while (true) {
 			Timer timer= new Timer();
@@ -26,6 +27,7 @@ public class cdht {
 					try {
 						peer.getPinger().sendMessage(peer.getSocket(), 
 								peer.getFirstSuccessor(), "request");
+						System.out.println("My port number is " + peer.getPortNumber());
 					} catch (Exception e) {
 						System.out.println("Could not send ping message.");
 						e.printStackTrace();

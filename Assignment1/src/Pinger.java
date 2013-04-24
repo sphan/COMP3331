@@ -23,6 +23,7 @@ public class Pinger {
 		
 		msg +=  receiver.getName() + ".";
 		
+		System.out.println("Receiver's port number: " + receiver.getPortNumber());
 		System.out.println("Sending message.");
 		
 		buffer = msg.getBytes();
