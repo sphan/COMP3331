@@ -1,5 +1,3 @@
-import java.net.DatagramSocket;
-
 
 public class Peer {
 	/**
@@ -15,8 +13,7 @@ public class Peer {
 	public Peer(int aIdentity) throws Exception {
 		this.identity = aIdentity;
 		this.portNumber = this.portNumber + aIdentity;
-		socket = new DatagramSocket();
-		this.pinger = new Pinger();
+		server = new PingerServer(portNumber);
 	}
 
 	/**
@@ -38,7 +35,7 @@ public class Peer {
 	 * @throws Exception 
 	 */
 	public void setFirstSuccessor(int aIdentity) throws Exception {
-		this.firstSuccessor = new Peer(aIdentity);
+		this.firstSuccessor = aIdentity;
 	}
 	
 	/**
@@ -50,7 +47,7 @@ public class Peer {
 	 * @throws Exception 
 	 */
 	public void setSecondSuccessor(int aIdentity) throws Exception {
-		this.secondSuccessor = new Peer(aIdentity);
+		this.secondSuccessor = aIdentity;
 	}
 	
 	/**
@@ -58,7 +55,7 @@ public class Peer {
 	 * @return Return a Peer which is the first successor
 	 * of the current peer.
 	 */
-	public Peer getFirstSuccessor() {
+	public int getFirstSuccessor() {
 		return this.firstSuccessor;
 	}
 	
@@ -67,20 +64,28 @@ public class Peer {
 	 * @return Return a Peer which is the second successor
 	 * of the current peer.
 	 */
-	public Peer getSecondSuccessor() {
+	public int getSecondSuccessor() {
 		return this.secondSuccessor;
 	}
 	
-	public Peer findSuccessor(int id) {
-		if (id == firstSuccessor.getName())
+	public int findSuccessor(int id) {
+		if (id == firstSuccessor)
 			return firstSuccessor;
-		else if (id == secondSuccessor.getName())
+		else if (id == secondSuccessor)
 			return secondSuccessor;
-		return null;
+		return 0;
 	}
 	
-	public Pinger getPinger() {
-		return pinger;
+	public PingerClient getClient() {
+		return this.client;
+	}
+
+	public void setClient(int port, int recPort) {
+		this.client = new PingerClient(port, recPort);
+	}
+
+	public PingerServer getServer() {
+		return this.server;
 	}
 	
 	/**
@@ -91,16 +96,12 @@ public class Peer {
 	public int getPortNumber() {
 		return this.portNumber;
 	}
-	
-	public DatagramSocket getSocket() {
-		return this.socket;
-	}
 
 	private int identity;
-	private int portNumber = 5000;
-	private Peer firstSuccessor;
-	private Peer secondSuccessor;
-	private DatagramSocket socket;
-	private Pinger pinger;
+	private int portNumber = 50000;
+	private int firstSuccessor;
+	private int secondSuccessor;
+	private PingerServer server;
+	private PingerClient client;
 	
 }
