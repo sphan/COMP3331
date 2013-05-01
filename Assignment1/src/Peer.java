@@ -1,3 +1,5 @@
+import java.util.LinkedList;
+
 
 public class Peer {
 	/**
@@ -13,7 +15,6 @@ public class Peer {
 	public Peer(int aIdentity) throws Exception {
 		this.identity = aIdentity;
 		this.portNumber = this.portNumber + aIdentity;
-		server = new PingerServer(portNumber);
 	}
 
 	/**
@@ -68,24 +69,18 @@ public class Peer {
 		return this.secondSuccessor;
 	}
 	
+	/**
+	 * Find the successor by its identity and return
+	 * which successor it is to the current peer if found.
+	 * @param id The id of the peer that is looking for.
+	 * @return The successor's id or 0 if not found.
+	 */
 	public int findSuccessor(int id) {
 		if (id == firstSuccessor)
 			return firstSuccessor;
 		else if (id == secondSuccessor)
 			return secondSuccessor;
 		return 0;
-	}
-	
-	public PingerClient getClient() {
-		return this.client;
-	}
-
-	public void setClient(int port, int recPort) {
-		this.client = new PingerClient(port, recPort);
-	}
-
-	public PingerServer getServer() {
-		return this.server;
 	}
 	
 	/**
@@ -96,12 +91,89 @@ public class Peer {
 	public int getPortNumber() {
 		return this.portNumber;
 	}
+	
+	/**
+	 * This method determines if a file is stored in the
+	 * current peer.
+	 * @param hashCode The hash code of the file requested.
+	 * @return True if the hash code of the file is in the
+	 * responsibility range of the peer. False otherwise.
+	 */
+	public boolean containFile(int hashCode) {
+		if (this.getName() > this.getFirstPreDecessor() && 
+				this.getName() < this.getFirstSuccessor()) {
+			if (hashCode <= this.getName() && hashCode > this.getFirstPreDecessor())
+				return true;
+		} else if (this.getName() > this.getFirstPreDecessor() && 
+				this.getName() > this.getFirstSuccessor()) {
+			if (hashCode <= this.getName() && hashCode > this.getFirstPreDecessor())
+				return true;
+		} else if (this.getName() < this.getFirstPreDecessor() && 
+				this.getName() < this.getFirstSuccessor()) {
+			if (hashCode > this.getName())
+				return false;
+			return true;
+		}
+		return false;
+	}
+
+	/**
+	 * Get the first predecessor of the current peer.
+	 * Should be the peer that is immediate before the current peer.
+	 * @return The peer that is right before current peer.
+	 */
+	public int getFirstPreDecessor() {
+		return firstPreDecessor;
+	}
+
+	/**
+	 * Set the first predecessor of the current peer.
+	 * @param firstPreDecessor The identity of the first predecessor.
+	 */
+	public void setFirstPreDecessor(int firstPreDecessor) {
+		this.firstPreDecessor = firstPreDecessor;
+	}
+
+	/**
+	 * Get the second predecessor of the current peer.
+	 * @return The peer that is before the first predecessor
+	 * of current peer.
+	 */
+	public int getSecondPreDecessor() {
+		return secondPreDecessor;
+	}
+
+	/**
+	 * Set the second predecessor of the current peer.
+	 * @param secondPreDecessor The identity of the second predecessor.
+	 */
+	public void setSecondPreDecessor(int secondPreDecessor) {
+		this.secondPreDecessor = secondPreDecessor;
+	}
+
+	/**
+	 * Returns the list of sequence numbers it has sent out.
+	 * @return A linked list of sequence numbers.
+	 */
+	public LinkedList<Integer> getSequenceNum() {
+		return sequenceNum;
+	}
+	
+	/**
+	 * Returns the list of acknowledge numbers it has received.
+	 * @return A linked list of acknowledged numbers.
+	 */
+	public LinkedList<Integer> getAckNum() {
+		return ackNum;
+	}
 
 	private int identity;
 	private int portNumber = 50000;
 	private int firstSuccessor;
 	private int secondSuccessor;
-	private PingerServer server;
-	private PingerClient client;
+	private int firstPreDecessor = 0;
+	private int secondPreDecessor = 0;
+	private static LinkedList<Integer> sequenceNum = new LinkedList<Integer>();
+	private static LinkedList<Integer> ackNum = new LinkedList<Integer>();
 	
 }
