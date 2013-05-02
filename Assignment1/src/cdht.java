@@ -17,11 +17,6 @@ public class cdht {
 		peer.setFirstSuccessor(Integer.parseInt(args[1]));
 		peer.setSecondSuccessor(Integer.parseInt(args[2]));
 		
-		System.out.println("I am " + peer.getName());
-		System.out.println("My first successor is " + peer.getFirstSuccessor());
-		System.out.println("My second successor is " + peer.getSecondSuccessor());
-		System.out.println("My port number is " + peer.getPortNumber());
-		
 		/**
 		 * A new thread used to constantly listen for inputs
 		 * for each peer.
@@ -94,7 +89,18 @@ public class cdht {
 		final Runnable firstSuccessor = new Runnable() {
 			@Override
 			public void run() {
-				Pinger.sendPing(peer, peer.getFirstSuccessor());
+				int consecutiveCount = 0;
+				pingSuccessful = Pinger.sendPing(peer, peer.getFirstSuccessor());
+				if (!pingSuccessful) {
+					consecutiveCount++;
+				} else
+					consecutiveCount = 0;
+				
+				try {
+					checkPeerAlive(consecutiveCount, peer.getFirstSuccessor());
+				} catch (Exception e) {
+					e.printStackTrace();
+				}
 			}
 		};
 		
@@ -105,11 +111,30 @@ public class cdht {
 		final Runnable secondSuccessor = new Runnable() {
 			@Override
 			public void run() {
-				Pinger.sendPing(peer, peer.getSecondSuccessor());
+				int consecutiveCount = 0;
+				pingSuccessful = Pinger.sendPing(peer, peer.getSecondSuccessor());
+				if (!pingSuccessful) {
+					consecutiveCount++;
+				} else
+					consecutiveCount = 0;
+				
+				try {
+					checkPeerAlive(consecutiveCount, peer.getSecondSuccessor());
+				} catch (Exception e) {
+					e.printStackTrace();
+				}
 			}
 		};
 		
 		scheduler2.scheduleAtFixedRate(secondSuccessor, DELAY, PING_INTERVAL, TimeUnit.SECONDS);
+	}
+	
+	public static void checkPeerAlive(int count, int successor) throws Exception {
+		System.out.println("No ack counts:" + count);
+		if (count > 5) {
+			System.out.println("Peer " + successor + " is not alive.");
+			TCPSockets.sendSuccessorTerminatedRequest(peer, successor);
+		}
 	}
 	
 	private static final long DELAY = 0L;
@@ -119,4 +144,5 @@ public class cdht {
 			Executors.newScheduledThreadPool(1);
 	private final static ScheduledExecutorService scheduler2 =
 			Executors.newScheduledThreadPool(1);
+	private static boolean pingSuccessful = true;
 }

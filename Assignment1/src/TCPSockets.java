@@ -7,7 +7,6 @@ import java.net.Socket;
 
 public class TCPSockets {
 	public static void sendRequest(Peer p, DHTFile f) throws Exception {
-		String serverName = "127.0.0.1";
 		InetAddress serverIPAddress = InetAddress.getByName(serverName);
 		
 		int receiverPort = p.getFirstSuccessor() + 50000;
@@ -23,7 +22,6 @@ public class TCPSockets {
 	}
 	
 	public static void sendQuitRequest(Peer p) throws Exception {
-		String serverName = "127.0.0.1";
 		InetAddress serverIPAddress = InetAddress.getByName(serverName);
 		
 		int receiverPort1 = p.getFirstPreDecessor() + 50000;
@@ -47,6 +45,21 @@ public class TCPSockets {
 		outToServer = new DataOutputStream(clientSocket3.getOutputStream());
 		outToServer.writeBytes(sentence + '\n');
 		outToServer = new DataOutputStream(clientSocket4.getOutputStream());
+		outToServer.writeBytes(sentence + '\n');
+	}
+	
+	public static void sendSuccessorTerminatedRequest(Peer p, int deadSuccessor) throws Exception {
+		InetAddress serverIPAddress = InetAddress.getByName(serverName);
+		
+		if (deadSuccessor == p.getFirstSuccessor()) {
+			p.setFirstSuccessor(p.getSecondSuccessor());
+		}
+		
+		int receiverPort = p.getFirstSuccessor() + 50000;
+		Socket clientSocket = new Socket(serverIPAddress, receiverPort);
+		
+		String sentence = "Who is my second successor from " + p.getPortNumber();
+		DataOutputStream outToServer = new DataOutputStream(clientSocket.getOutputStream());
 		outToServer.writeBytes(sentence + '\n');
 	}
 	
@@ -91,13 +104,25 @@ public class TCPSockets {
 					System.out.println("Could not convert numbers");
 					e.printStackTrace();
 				}
+			} else if (clientSentence.contains("who")) {
+				try {
+					peerFrom = Integer.parseInt(params[6]) - 50000;
+				} catch (NumberFormatException e) {
+					System.out.println("Could not convert numbers");
+				}
+			} else if (clientSentence.contains("second successor")) {
+				try {
+					successor2 = Integer.parseInt(params[5]) - 50000;
+				} catch (NumberFormatException e) {
+					System.out.println("Could not convert numbers");
+				}
 			}
+			
+			
+			InetAddress serverIPAddress = InetAddress.getByName(serverName);
 			
 			// display out response
 			if (clientSentence.contains("request")) {
-				String serverName = "127.0.0.1";
-				InetAddress serverIPAddress = InetAddress.getByName(serverName);
-				
 				// If current peer contains the file, send a reply
 				// back to the requesting peer
 				// else pass on to its successor.
@@ -124,20 +149,34 @@ public class TCPSockets {
 					p.setFirstSuccessor(successor1);
 					p.setSecondSuccessor(successor2);
 					System.out.println("Peer " + peerFrom + " will depart from the network.");
-					System.out.println("My first successor is now peer " + p.getFirstSuccessor() + ".");
-					System.out.println("My second successor is now peer " + p.getSecondSuccessor() + ".");
+					printMySuccessors(p);
 				} else if (p.getSecondSuccessor() == peerFrom) {
 					p.setSecondSuccessor(successor1);
 					System.out.println("Peer " + peerFrom + " will depart from the network.");
-					System.out.println("My first successor is now peer " + p.getFirstSuccessor() + ".");
-					System.out.println("My second successor is now peer " + p.getSecondSuccessor() + ".");
+					printMySuccessors(p);
 				} else if (p.getFirstPreDecessor() == peerFrom) {
 					p.setFirstPreDecessor(predecessor1);
 					p.setSecondPreDecessor(predecessor2);
 				} else if (p.getSecondPreDecessor() == peerFrom) {
 					p.setSecondPreDecessor(predecessor1);
 				}
+			} else if (clientSentence.contains("who")) {
+				p.setFirstPreDecessor(peerFrom);
+				String reply = "Your second successor is peer " + p.getFirstSuccessor();
+				Socket clientSocket = new Socket(serverIPAddress, peerFrom);
+				DataOutputStream outToRequester = new DataOutputStream(clientSocket.getOutputStream());
+				outToRequester.writeBytes(reply + '\n');
+			} else if (clientSentence.contains("second successor")) {
+				p.setSecondSuccessor(successor2);
+				printMySuccessors(p);
 			}
 		}
 	}
+	
+	private static void printMySuccessors(Peer p) {
+		System.out.println("My first successor is now peer " + p.getFirstSuccessor() + ".");
+		System.out.println("My second successor is now peer " + p.getSecondSuccessor() + ".");
+	}
+	
+	private static String serverName = "127.0.0.1";
 }
