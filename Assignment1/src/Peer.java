@@ -110,9 +110,13 @@ public class Peer {
 				return true;
 		} else if (this.getName() < this.getFirstPreDecessor() && 
 				this.getName() < this.getFirstSuccessor()) {
-			if (hashCode > this.getName())
-				return false;
-			return true;
+			if (hashCode > this.getName()) {
+				if (hashCode < this.getFirstPreDecessor())
+					return false;
+				return true;
+			} else if (hashCode < this.getFirstPreDecessor() &&
+					hashCode <= this.getName())
+				return true;
 		}
 		return false;
 	}
@@ -163,8 +167,16 @@ public class Peer {
 	 * Returns the list of acknowledge numbers it has received.
 	 * @return A linked list of acknowledged numbers.
 	 */
-	public LinkedList<Integer> getAckNum() {
-		return ackNum;
+	public LinkedList<Integer> getHasAck() {
+		return hasAck;
+	}
+	
+	/**
+	 * Returns the list of acknowledge numbers it has not received.
+	 * @return A linked list of acknowledged numbers.
+	 */
+	public LinkedList<Integer> getNoAck() {
+		return noAck;
 	}
 
 	private int identity;
@@ -174,6 +186,7 @@ public class Peer {
 	private int firstPreDecessor = 0;
 	private int secondPreDecessor = 0;
 	private static LinkedList<Integer> sequenceNum = new LinkedList<Integer>();
-	private static LinkedList<Integer> ackNum = new LinkedList<Integer>();
+	private static LinkedList<Integer> hasAck = new LinkedList<Integer>();
+	private static LinkedList<Integer> noAck = new LinkedList<Integer>();
 	
 }
