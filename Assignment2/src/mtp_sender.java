@@ -15,6 +15,8 @@ public class mtp_sender {
 		int mss = Integer.parseInt(args[4]);
 		int timeout = Integer.parseInt(args[5]);
 		
-		
+		// calculate the number of packets can be
+		// sent at once.
+		int packetNum = mws / mss;
 	}
 }
