@@ -1,3 +1,4 @@
+import java.net.DatagramPacket;
 import java.net.DatagramSocket;
 
 
@@ -14,7 +15,12 @@ public class mtp_server {
 		DatagramSocket socket = new DatagramSocket(myPort);
 		
 		while (true) {
-			
+			DatagramPacket request = new DatagramPacket(new byte[FILE_SIZE], FILE_SIZE);
+			socket.receive(request);
+			System.out.println("Received data");
+			System.out.println(new String(request.getData()));
 		}
 	}
+	
+	private static final int FILE_SIZE = 1024 * 5;
 }
