@@ -5,8 +5,21 @@ import java.net.InetAddress;
 import java.net.ServerSocket;
 import java.net.Socket;
 
+/**
+ * This class uses TCP to send and receive requests
+ * @author Sandy - z3417917
+ *
+ */
 public class TCPSockets {
-	public static void sendRequest(Peer p, DHTFile f) throws Exception {
+	/**
+	 * Sends out a file request message to the peer's
+	 * first successor.
+	 * @param p The peer who is requesting for a file.
+	 * @param f The file that is requested.
+	 * @throws Exception All exceptions including IOExceptions,
+	 * UnknownHostExceptions
+	 */
+	public static void sendFileRequest(Peer p, DHTFile f) throws Exception {
 		InetAddress serverIPAddress = InetAddress.getByName(serverName);
 		
 		int receiverPort = p.getFirstSuccessor() + 50000;
@@ -21,18 +34,22 @@ public class TCPSockets {
 		System.out.println("File request message for " + f.getFileName() + " has been sent to my successor.");
 	}
 	
+	/**
+	 * Sends out a message indicating that it is leaving.
+	 * The message will contains details of its first and
+	 * second successors.
+	 * @param p The peer that is leaving the circle.
+	 * @throws Exception All exceptions including IOExceptions,
+	 * UnknownHost Exceptions.
+	 */
 	public static void sendQuitRequest(Peer p) throws Exception {
 		InetAddress serverIPAddress = InetAddress.getByName(serverName);
 		
 		int receiverPort1 = p.getFirstPreDecessor() + 50000;
 		int receiverPort2 = p.getSecondPreDecessor() + 50000;
-		int receiverPort3 = p.getFirstSuccessor() + 50000;
-		int receiverPort4 = p.getSecondSuccessor() + 50000;
 		
 		Socket clientSocket1 = new Socket(serverIPAddress, receiverPort1);
 		Socket clientSocket2 = new Socket(serverIPAddress, receiverPort2);
-		Socket clientSocket3 = new Socket(serverIPAddress, receiverPort3);
-		Socket clientSocket4 = new Socket(serverIPAddress, receiverPort4);
 		
 		String sentence = "My successors are peer " + p.getFirstSuccessor() + " and peer " + p.getSecondSuccessor()
 				+ " and my predecessors are " + p.getFirstPreDecessor() + " and " + p.getSecondPreDecessor()
@@ -42,27 +59,40 @@ public class TCPSockets {
 		outToServer.writeBytes(sentence + '\n');
 		outToServer = new DataOutputStream(clientSocket2.getOutputStream());
 		outToServer.writeBytes(sentence + '\n');
-		outToServer = new DataOutputStream(clientSocket3.getOutputStream());
-		outToServer.writeBytes(sentence + '\n');
-		outToServer = new DataOutputStream(clientSocket4.getOutputStream());
-		outToServer.writeBytes(sentence + '\n');
 	}
 	
+	/**
+	 * Sends out requests for it's unknown successor when one
+	 * of its successor has terminated without notifying them.
+	 * @param p The peer who has one of its successor terminated.
+	 * @param deadSuccessor The successor who has left without notifying.
+	 * @throws Exception All exceptions including IOExceptions,
+	 * UnknownHostExceptions, NumberFormatExceptions.
+	 */
 	public static void sendSuccessorTerminatedRequest(Peer p, int deadSuccessor) throws Exception {
 		InetAddress serverIPAddress = InetAddress.getByName(serverName);
-		
+
 		if (deadSuccessor == p.getFirstSuccessor()) {
 			p.setFirstSuccessor(p.getSecondSuccessor());
 		}
 		
+		System.out.println("Peer " + deadSuccessor + " is no longer alive.");
+		
 		int receiverPort = p.getFirstSuccessor() + 50000;
 		Socket clientSocket = new Socket(serverIPAddress, receiverPort);
 		
-		String sentence = "Who is my second successor from " + p.getPortNumber();
+		String sentence = "Who is my other successor from " + p.getPortNumber();
 		DataOutputStream outToServer = new DataOutputStream(clientSocket.getOutputStream());
 		outToServer.writeBytes(sentence + '\n');
 	}
 	
+	/**
+	 * This method receive all incoming TCP requests. It takes different
+	 * actions according to the contents of the message.
+	 * @param p The peer who is awaiting to receive TCP requests.
+	 * @throws Exception All exceptions including IOExceptions,
+	 * UnknownHostExceptions, NumberFormatExceptions.
+	 */
 	public static void receiveRequest(Peer p) throws Exception {
 		int serverPort = p.getPortNumber();
 		
@@ -82,7 +112,6 @@ public class TCPSockets {
 			String fileName = null;
 			int fileHash = 0, peerFrom = 0;
 			int successor1 = 0, successor2 = 0;
-			int predecessor1 = 0, predecessor2 = 0;
 			
 			// proccess input and prepare reply stream
 			if (clientSentence.contains("request") || clientSentence.contains("has file")) {
@@ -91,30 +120,24 @@ public class TCPSockets {
 					fileHash = Integer.parseInt(params[6]);
 					peerFrom = Integer.parseInt(params[8]);
 				} catch (NumberFormatException e) {
-					System.out.println("Could not convert numbers");
+					System.out.println("Could not convert numbers 1");
 				}
 			} else if (clientSentence.contains("successors")) {
 				try {
 					successor1 = Integer.parseInt(params[4].trim());
 					successor2 = Integer.parseInt(params[7].trim());
-					predecessor1 = Integer.parseInt(params[12].trim());
-					predecessor2 = Integer.parseInt(params[14].trim());
 					peerFrom = Integer.parseInt(params[17].trim()) - 50000;
 				} catch (NumberFormatException e) {
-					System.out.println("Could not convert numbers");
+					System.out.println("Could not convert numbers 2");
 					e.printStackTrace();
 				}
-			} else if (clientSentence.contains("who")) {
-				try {
-					peerFrom = Integer.parseInt(params[6]) - 50000;
-				} catch (NumberFormatException e) {
-					System.out.println("Could not convert numbers");
-				}
+			} else if (clientSentence.contains("Who") || clientSentence.contains("who")) {
+				peerFrom = Integer.parseInt(params[params.length - 1].trim());
 			} else if (clientSentence.contains("second successor")) {
 				try {
-					successor2 = Integer.parseInt(params[5]) - 50000;
+					successor2 = Integer.parseInt(params[params.length - 1].trim());
 				} catch (NumberFormatException e) {
-					System.out.println("Could not convert numbers");
+					System.out.println("Could not convert numbers 4");
 				}
 			}
 			
@@ -154,13 +177,8 @@ public class TCPSockets {
 					p.setSecondSuccessor(successor1);
 					System.out.println("Peer " + peerFrom + " will depart from the network.");
 					printMySuccessors(p);
-				} else if (p.getFirstPreDecessor() == peerFrom) {
-					p.setFirstPreDecessor(predecessor1);
-					p.setSecondPreDecessor(predecessor2);
-				} else if (p.getSecondPreDecessor() == peerFrom) {
-					p.setSecondPreDecessor(predecessor1);
 				}
-			} else if (clientSentence.contains("who")) {
+			} else if (clientSentence.contains("Who")) {
 				p.setFirstPreDecessor(peerFrom);
 				String reply = "Your second successor is peer " + p.getFirstSuccessor();
 				Socket clientSocket = new Socket(serverIPAddress, peerFrom);
@@ -173,6 +191,10 @@ public class TCPSockets {
 		}
 	}
 	
+	/**
+	 * This method prints out the successor of the peer.
+	 * @param p The peer who will have its successors printed out.
+	 */
 	private static void printMySuccessors(Peer p) {
 		System.out.println("My first successor is now peer " + p.getFirstSuccessor() + ".");
 		System.out.println("My second successor is now peer " + p.getSecondSuccessor() + ".");

@@ -32,7 +32,7 @@ public class cdht {
 						String params[] = s.split(" ");
 						DHTFile f = new DHTFile(params[1]);
 						try {
-							TCPSockets.sendRequest(peer, f);
+							TCPSockets.sendFileRequest(peer, f);
 						} catch (Exception e) {
 							e.printStackTrace();
 						}
@@ -89,15 +89,14 @@ public class cdht {
 		final Runnable firstSuccessor = new Runnable() {
 			@Override
 			public void run() {
-				int consecutiveCount = 0;
 				pingSuccessful = Pinger.sendPing(peer, peer.getFirstSuccessor());
 				if (!pingSuccessful) {
-					consecutiveCount++;
+					count1++;
 				} else
-					consecutiveCount = 0;
+					count1 = 0;
 				
 				try {
-					checkPeerAlive(consecutiveCount, peer.getFirstSuccessor());
+					checkPeerAlive(count1, peer.getFirstSuccessor());
 				} catch (Exception e) {
 					e.printStackTrace();
 				}
@@ -111,15 +110,14 @@ public class cdht {
 		final Runnable secondSuccessor = new Runnable() {
 			@Override
 			public void run() {
-				int consecutiveCount = 0;
 				pingSuccessful = Pinger.sendPing(peer, peer.getSecondSuccessor());
 				if (!pingSuccessful) {
-					consecutiveCount++;
+					count2++;
 				} else
-					consecutiveCount = 0;
+					count2 = 0;
 				
 				try {
-					checkPeerAlive(consecutiveCount, peer.getSecondSuccessor());
+					checkPeerAlive(count2, peer.getSecondSuccessor());
 				} catch (Exception e) {
 					e.printStackTrace();
 				}
@@ -129,11 +127,23 @@ public class cdht {
 		scheduler2.scheduleAtFixedRate(secondSuccessor, DELAY, PING_INTERVAL, TimeUnit.SECONDS);
 	}
 	
-	public static void checkPeerAlive(int count, int successor) throws Exception {
-		System.out.println("No ack counts:" + count);
+	public static void checkPeerAlive(int count, final int successor) throws Exception {
 		if (count > 5) {
-			System.out.println("Peer " + successor + " is not alive.");
-			TCPSockets.sendSuccessorTerminatedRequest(peer, successor);
+			if (successor == peer.getFirstSuccessor())
+				TCPSockets.sendSuccessorTerminatedRequest(peer, successor);
+			else if (successor == peer.getSecondSuccessor()) {
+				final Runnable peerDead = new Runnable() {
+					@Override
+					public void run() {
+						try {
+							TCPSockets.sendSuccessorTerminatedRequest(peer, successor);
+						} catch (Exception e) {
+							e.printStackTrace();
+						}
+					}
+				};
+				scheduler1.schedule(peerDead, 10, TimeUnit.SECONDS);
+			}
 		}
 	}
 	
@@ -145,4 +155,5 @@ public class cdht {
 	private final static ScheduledExecutorService scheduler2 =
 			Executors.newScheduledThreadPool(1);
 	private static boolean pingSuccessful = true;
+	private static int count1 = 0, count2 = 0;
 }

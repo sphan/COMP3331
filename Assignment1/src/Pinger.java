@@ -5,9 +5,22 @@ import java.net.InetAddress;
 import java.net.SocketException;
 import java.net.UnknownHostException;
 
-
+/**
+ * This class include all needed methods in
+ * sending and receiving UDP messages using UDP
+ * @author sandy - z3417917
+ *
+ */
 public class Pinger {
 	
+	/**
+	 * Send out ping messages using UDP and waits for
+	 * the response message with a time out set.
+	 * @param p The peer that would like to send the ping message.
+	 * @param receiverPort The receiver in which the peer would like
+	 * the message to be received
+	 * @return True if the ping is sent and false otherwise.
+	 */
 	public static boolean sendPing(Peer p, int receiverPort) {
 		receiverPort += 50000;
 		boolean received = false;
@@ -50,23 +63,22 @@ public class Pinger {
 				clientSocket.receive(pong);
 				received = true;
 				
-				System.out.println("A ping response message was received from Peer " + (pong.getPort() - 50000));
+				System.out.println("A ping response message was received from Peer " + (pong.getPort() - 50000) + ".");
 			} catch (IOException e) {
-//				p.getHasAck().add(counter);
 			}
 			
-//			if (received) {
-//				p.getHasAck().add(counter);
-//				System.out.println("Ack received added");
-//			} else {
-//				p.getNoAck().add(counter);
-//				System.out.println("Ack not received added");
-//			}
-//			checkPeerAlive(p);
 		}
 		return received;
 	}
 	
+	/**
+	 * This method receive ping messages using UDP
+	 * and send out replies once the messages are received.
+	 * @param p The peer that is continuously receiving ping
+	 * messages.
+	 * @throws Exception All exceptions including IOExceptions,
+	 * UnknownHostExceptions, and NumberFormatExceptions.
+	 */
 	public static void receivePing(Peer p) throws Exception {
 		
 		DatagramSocket serverSocket = null;
@@ -85,7 +97,7 @@ public class Pinger {
 				String[] params = new String(pong.getData()).split(" ");
 				sender = Integer.parseInt(params[4].trim()) - 50000;
 				
-				System.out.println("A ping request message was received from Peer " + sender);
+				System.out.println("A ping request message was received from Peer " + sender + ".");
 				
 				// set predecessor of current peer
 				if (p.getFirstPreDecessor() == 0 && p.getSecondPreDecessor() == 0) {
@@ -115,42 +127,5 @@ public class Pinger {
 		}
 	}
 	
-//	public static boolean checkPeerAlive(Peer p) {
-//		LinkedList<Integer> seqList = p.getSequenceNum();
-//		LinkedList<Integer> noAckList = p.getNoAck();
-//		LinkedList<Integer> hasAckList = p.getHasAck();
-////		boolean isConsecutive = false;
-//		int consecutiveCount = 0;
-//		boolean peerIsAlive = true;
-//		
-//		if (seqList.size() > 5) {
-//			while (seqList.size() > 0 && 
-//					hasAckList.size() > 0 && 
-//					noAckList.size() > 0) {
-//				if (seqList.peek() != hasAckList.peek()) {
-////					System.out.println("Seq #" + seqList.peek() + " is not in received ack list");
-//					if (seqList.peek() == noAckList.peek()) {
-////						System.out.println("Seq #" + seqList.peek() + " is in not-received ack list");
-//						consecutiveCount++;
-//						noAckList.pop();
-//					}
-//				} else {
-////					System.out.println("Seq #" + seqList.peek() + " is in received ack list");
-//					consecutiveCount = 0;
-//					hasAckList.pop();
-//				}
-//				seqList.pop();
-//				System.out.println("Consecutive ping numbers: " + consecutiveCount);
-//				if (consecutiveCount > 5) {
-//					System.out.println("5 pings have passed. Peer is not alive");
-//					System.out.println(5);
-//					peerIsAlive = false;
-//				}
-//			}
-//		}
-//		return peerIsAlive;
-//	}
-	
 	private static final int TIMEOUT = 10000;
-//	private static int counter = 0;
 }

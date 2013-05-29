@@ -1,4 +1,9 @@
-
+/**
+ * A class that is used to store all required contents
+ * of a file
+ * @author sandy
+ *
+ */
 public class DHTFile {
 
 	/**
@@ -21,23 +26,46 @@ public class DHTFile {
 		setHashCode();
 	}
 	
+	/**
+	 * The hash function which will evaluate the hash
+	 * value of a given identity of a file.
+	 * @param name The identity of a file in integer.
+	 * @return The hash code of the associating file name.
+	 */
 	public int hash(int name) {
 		int hashCode = name % HASH;
 		return hashCode;
 	}
 	
+	/**
+	 * Get the file name in string in the format of
+	 * 4 characters.
+	 * @return The string representation of the file name.
+	 */
 	public String getFileName() {
 		return this.name;
 	}
 	
+	/**
+	 * Get the file's ID in the format of an integer.
+	 * All 0's in front of the number will be discarded.
+	 * @return The integer representation of the file.
+	 */
 	public int getFileId() {
 		return this.fileName;
 	}
 
+	/**
+	 * Get the hash value of the file.
+	 * @return The hash value of the file in integer.
+	 */
 	public int getHashCode() {
 		return this.hashCode;
 	}
 
+	/**
+	 * Set the hash value of a file.
+	 */
 	public void setHashCode() {
 		this.hashCode = this.hash(this.fileName);
 	}
