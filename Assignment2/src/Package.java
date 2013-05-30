@@ -1,5 +1,7 @@
+import java.io.Serializable;
 
-public class Package {
+
+public class Package implements Serializable {
 	
 	public Package(int seqNum) {
 		this.seqNumber = seqNum;
@@ -92,5 +94,8 @@ public class Package {
 	private boolean ACK;
 	private boolean URG;
 	private byte[] data;
-	
+	/**
+	 * Default serialization ID
+	 */
+	private static final long serialVersionUID = 1L;
 }
