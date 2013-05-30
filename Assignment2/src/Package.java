@@ -1,7 +1,8 @@
 
-public class Header {
+public class Package {
 	
-	public Header() {
+	public Package(int seqNum) {
+		this.seqNumber = seqNum;
 		this.SYN = false;
 		this.FIN = false;
 		this.RST = false;
@@ -74,6 +75,14 @@ public class Header {
 		this.URG = URG;
 	}
 	
+	public byte[] getData() {
+		return data;
+	}
+
+	public void setData(byte[] data) {
+		this.data = data;
+	}
+	
 	private int seqNumber;
 	private int ackNumber;
 	private boolean SYN;
@@ -82,4 +91,6 @@ public class Header {
 	private boolean PSH;
 	private boolean ACK;
 	private boolean URG;
+	private byte[] data;
+	
 }

@@ -43,19 +43,30 @@ public class mtp_sender {
 					}
 				}
 				
-				try {
-					socket.setSoTimeout(timeout);
-					
-					DatagramPacket response = new DatagramPacket(new byte[1024], 1024);
-					
-					socket.receive(response);
-					System.out.println("Received response");
-				} catch (IOException e) {
-					System.out.println("Timeout");
-				}
+//				try {
+//					socket.setSoTimeout(timeout);
+//					
+//					DatagramPacket response = new DatagramPacket(new byte[1024], 1024);
+//					
+//					socket.receive(response);
+//					System.out.println("Received response");
+//				} catch (IOException e) {
+//					System.out.println("Timeout");
+//				}
 			}
 		} finally {
 			fis.close();
 		}
+	}
+	
+	public boolean establishConnection() {
+		Package establishment = new Package(0);
+		boolean connectionEstablished = false;
+		establishment.setSYN(true);
+		
+		while (!connectionEstablished) {
+			
+		}
+		return false;
 	}
 }
