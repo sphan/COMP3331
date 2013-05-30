@@ -1,3 +1,5 @@
+import java.io.ByteArrayInputStream;
+import java.io.ObjectInputStream;
 import java.net.DatagramPacket;
 import java.net.DatagramSocket;
 
@@ -15,10 +17,15 @@ public class mtp_server {
 		DatagramSocket socket = new DatagramSocket(myPort);
 		
 		while (true) {
-			DatagramPacket request = new DatagramPacket(new byte[FILE_SIZE], FILE_SIZE);
-			socket.receive(request);
-			System.out.println("Received data");
-			System.out.println(new String(request.getData()));
+//			DatagramPacket request = new DatagramPacket(new byte[FILE_SIZE], FILE_SIZE);
+//			socket.receive(request);
+//			System.out.println("Received data");
+//			System.out.println(new String(request.getData()));
+			
+			ByteArrayInputStream bis = new ByteArrayInputStream(new byte[FILE_SIZE]);
+			ObjectInputStream in = new ObjectInputStream(bis);
+			Package p = (Package) in.readObject();
+			System.out.println(p.isSYN());
 		}
 	}
 	

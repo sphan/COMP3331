@@ -1,6 +1,8 @@
+import java.io.ByteArrayOutputStream;
 import java.io.File;
 import java.io.FileInputStream;
 import java.io.IOException;
+import java.io.ObjectOutputStream;
 import java.net.DatagramPacket;
 import java.net.DatagramSocket;
 import java.net.InetAddress;
@@ -31,17 +33,17 @@ public class mtp_sender {
 			byte[] buff = new byte[mss];
 			int remaining = buff.length;
 			while (true) {
-				int read = fis.read(buff, buff.length - remaining, remaining);
-				if (read > 0) {
-					remaining -= read;
-					if (remaining == 0) {
-						System.out.println("sending data");
-						DatagramPacket packet = new DatagramPacket(buff, buff.length, server, receiverPort);
-						socket.send(packet);
-//						System.out.println(new String(packet.getData()));
-						remaining = buff.length;
-					}
-				}
+//				int read = fis.read(buff, buff.length - remaining, remaining);
+//				if (read > 0) {
+//					remaining -= read;
+//					if (remaining == 0) {
+//						System.out.println("sending data");
+//						DatagramPacket packet = new DatagramPacket(buff, buff.length, server, receiverPort);
+//						socket.send(packet);
+////						System.out.println(new String(packet.getData()));
+//						remaining = buff.length;
+//					}
+//				}
 				
 //				try {
 //					socket.setSoTimeout(timeout);
@@ -59,14 +61,17 @@ public class mtp_sender {
 		}
 	}
 	
-	public boolean establishConnection() {
+	public boolean establishConnection(DatagramSocket socket) throws Exception {
 		Package establishment = new Package(0);
-		boolean connectionEstablished = false;
 		establishment.setSYN(true);
 		
-		while (!connectionEstablished) {
-			
+		while (!connectionEstalished) {
+			ByteArrayOutputStream bos = new ByteArrayOutputStream(2048);
+			ObjectOutputStream out = new ObjectOutputStream(bos);
+			out.writeObject(establishment);
 		}
 		return false;
 	}
+	
+	private static boolean connectionEstalished = false;
 }
