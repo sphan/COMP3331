@@ -1,9 +1,9 @@
 import java.io.Serializable;
 
 
-public class Package implements Serializable {
+public class Packet implements Serializable {
 	
-	public Package(int seqNum) {
+	public Packet(int seqNum) {
 		this.seqNumber = seqNum;
 		this.SYN = false;
 		this.FIN = false;
