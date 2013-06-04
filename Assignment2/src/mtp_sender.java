@@ -1,12 +1,10 @@
-import java.io.ByteArrayOutputStream;
 import java.io.File;
 import java.io.FileInputStream;
 import java.io.IOException;
-import java.io.ObjectOutputStream;
 import java.net.DatagramPacket;
 import java.net.DatagramSocket;
 import java.net.InetAddress;
-
+import java.util.LinkedList;
 
 public class mtp_sender {
 	public static void main(String args[]) throws Exception {
@@ -15,26 +13,33 @@ public class mtp_sender {
 			return;
 		}
 		
+		// assign inputs to variables, assuming inputs are
+		// all in correct format.
 		server = InetAddress.getByName(args[0]);
 		receiverPort = Integer.parseInt(args[1]);
 		String fileName = args[2];
 		int mws = Integer.parseInt(args[3]);
 		int mss = Integer.parseInt(args[4]);
 		int timeout = Integer.parseInt(args[5]);
-		int seqNum = 0;
-		boolean finished = false;
+		pdrop = Float.parseFloat(args[6]);
+		seed = Integer.parseInt(args[7]);
+		
+		int read = 0; // to store the number of bytes read from file.
+		int seqNum = 0; // sequence number
+		boolean finished = false; // a flag to see if everything is done
 		
 		// calculate the number of packets can be
 		// sent at once.
 		int packetNum = mws / mss;
 		
+		int sentNum = 0; // the number of packets sent
+		
 		socket = new DatagramSocket();
 		socket.setSoTimeout(timeout);
+		
+		// get the file.
 		File file = new File(fileName);
 		FileInputStream fis = new FileInputStream(file);
-		
-		if (!file.exists())
-			file.createNewFile();
 		
 		try {
 			byte[] buff = new byte[mss];
@@ -43,23 +48,30 @@ public class mtp_sender {
 			while (!finished) {
 				// send out packets of the data from the text file.
 				if (connectionEstablished) {
-					Packet p;
-					int read = fis.read(buff, buff.length - remaining, remaining);
-					p = new Packet(seqNum);
-					if (read >= 0) {
-						remaining -= read;
-						if (remaining == 0) { 
-							remaining = buff.length;
-						} else {
-							finished = true;
+					if (sentNum < packetNum) {
+						Packet p;
+						read = fis.read(buff, buff.length - remaining, remaining);
+						p = new Packet(seqNum);
+						if (read > 0) {
+							remaining -= read;
+							if (remaining == 0) { 
+								remaining = buff.length;
+							} else {
+								finished = true;
+							}
 						}
+					
+						// send data
+						p.setData(buff);
+						p.setSeqNumber(seqNum);
+						socket.send(Serialisation.serialise(p, server, receiverPort));
+						sentList.add(p.getSeqNumber()); // add sequence number to list
+						seqNum += read;
+						sentNum++;
+						
+						System.out.println("Packet segment with seq # " + p.getSeqNumber() + " sent");
 					}
 					
-					p.setData(buff);
-					p.setSeqNumber(seqNum);
-					socket.send(Serialisation.serialise(p, server, receiverPort));
-					seqNum += read;
-					System.out.println("Packet segment with seq # " + p.getSeqNumber() + " sent");
 				}
 				
 				// receive response from server.
@@ -67,9 +79,14 @@ public class mtp_sender {
 					socket.setSoTimeout(timeout);
 					
 					DatagramPacket response = new DatagramPacket(new byte[1024], 1024);
-					
 					socket.receive(response);
-					System.out.println("Received ACK # " + Serialisation.deserialise(response).getAckNumber());
+					
+					Packet responsePacket = Serialisation.deserialise(response);
+					if (sentList.size() > 0 && sentList.contains(responsePacket.getAckNumber() - read)) {
+						sentList.remove(responsePacket.getAckNumber());
+						sentNum--;
+					}
+					System.out.println("Received ACK # " + responsePacket.getAckNumber());
 				} catch (IOException e) {
 					System.out.println("Timeout");
 				}
@@ -174,7 +191,12 @@ public class mtp_sender {
 	private static DatagramSocket socket;
 	private static InetAddress server;
 	private static int receiverPort;
+	private static float pdrop;
+	private static int seed;
 	private static boolean connectionEstablished = false;
 	private static final int FILE_SIZE = 1024 * 5;
 	private static final int CLIENT_ISN = 3;
+	
+	// a list of all sequence numbers being sent out.
+	private static LinkedList<Integer> sentList = new LinkedList<Integer>();
 }

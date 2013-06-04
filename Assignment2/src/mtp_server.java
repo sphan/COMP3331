@@ -64,7 +64,12 @@ public class mtp_server {
 						socket.send(Serialisation.serialise(ackReply, clientAddress, clientPort));
 						System.out.println("Ack number " + ackReply.getAckNumber() + " sent");
 					} else {
-						outOfOrder.add(p);
+						System.out.println("Out of order.");
+						if (hasPacket(p)) {
+							
+						} else {
+							outOfOrder.add(p);
+						}
 					}
 				}
 			}
@@ -135,8 +140,11 @@ public class mtp_server {
 		}
 	}
 	
-	private boolean hasPacket() {
-		
+	private static boolean hasPacket(Packet packet) {
+		for (Packet p : outOfOrder) {
+			if (p.getSeqNumber() == packet.getSeqNumber())
+				return true;
+		}
 		return false;
 	}
 	
