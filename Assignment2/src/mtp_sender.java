@@ -17,8 +17,8 @@ public class mtp_sender {
 			return;
 		}
 		
-		InetAddress server = InetAddress.getByName(args[0]);
-		int receiverPort = Integer.parseInt(args[1]);
+		server = InetAddress.getByName(args[0]);
+		receiverPort = Integer.parseInt(args[1]);
 		String fileName = args[2];
 		int mws = Integer.parseInt(args[3]);
 		int mss = Integer.parseInt(args[4]);
@@ -30,7 +30,7 @@ public class mtp_sender {
 		// sent at once.
 		int packetNum = mws / mss;
 		
-		DatagramSocket socket = new DatagramSocket();
+		socket = new DatagramSocket();
 		socket.setSoTimeout(timeout);
 		File file = new File(fileName);
 		FileInputStream fis = new FileInputStream(file);
@@ -79,6 +79,10 @@ public class mtp_sender {
 				} catch (IOException e) {
 					System.out.println("Timeout");
 				}
+				
+				if (finished) {
+					closeConnection(socket, server, receiverPort);
+				}
 			}
 		} finally {
 			fis.close();
@@ -88,16 +92,12 @@ public class mtp_sender {
 	public static boolean establishConnection(DatagramSocket socket, InetAddress server, int port) throws Exception {
 		Package establishment = new Package(CLIENT_ISN);
 		establishment.setSYN(true);
+		boolean connectionEstalished = false;
 //		DatagramPacket packet = new DatagramPacket(buff, buff.length, server, port);
 		
 		while (!connectionEstalished) {
 			System.out.println("Establishing connection:");
-			ByteArrayOutputStream bos = new ByteArrayOutputStream();
-			ObjectOutputStream out = new ObjectOutputStream(bos);
-			out.writeObject(establishment);
-			
-			DatagramPacket packet = new DatagramPacket(bos.toByteArray(), bos.size(), server, port);
-			socket.send(packet);
+			socket.send(Serialisation.serialise(establishment, server, port));
 			System.out.println("Establishment written");
 			
 			try {
@@ -105,10 +105,7 @@ public class mtp_sender {
 				socket.receive(response);
 				System.out.print(response.getData());
 				System.out.println("Establishment packet: " + establishment);
-				ByteArrayInputStream bis = new ByteArrayInputStream(response.getData());
-				ObjectInputStream in = new ObjectInputStream(bis);
-				System.out.println(in);
-				Package p = (Package) in.readObject();
+				Package p = Serialisation.deserialise(response);
 				
 				if (p.isACK() && p.isSYN()) {
 					System.out.println("SYNACK received");
@@ -116,16 +113,64 @@ public class mtp_sender {
 					
 					establishment.setSeqNumber(establishment.getSeqNumber() + 1);
 					establishment.setAckNumber(p.getSeqNumber() + 1);
-					out.close();
+					socket.send(Serialisation.serialise(establishment, server, port));
 				}
 			} catch (IOException e) {
 				e.printStackTrace();
 			}
 		}
-		return true;
+		return connectionEstalished;
 	}
 	
-	private static boolean connectionEstalished = false;
+	public static boolean closeConnection(DatagramSocket socket, InetAddress server, int port) throws Exception {
+		Package close = new Package(CLIENT_ISN);
+		close.setFIN(true);
+		boolean connectionClosed = false;
+		
+		while (!connectionClosed) {
+			System.out.println("Closing connection");
+			DatagramPacket packet = Serialisation.serialise(close, server, port);
+			socket.send(packet);
+			System.out.println("Closing packet sent");
+			
+			try {
+				DatagramPacket response = new DatagramPacket(new byte[FILE_SIZE], FILE_SIZE);
+				socket.receive(response);
+				System.out.print(response.getData());
+				System.out.println("Close packet: " + close);
+				Package p = Serialisation.deserialise(response);
+				
+				if (p.isACK()) {
+					System.out.println("Received ACK, Waiting for FIN from server");
+					socket.receive(response);
+					p = Serialisation.deserialise(response);
+					
+					if (p.isFIN()) {
+						wait(30);
+						System.out.println("Connection Closed");
+					}
+				}
+			} catch (IOException e) {
+				e.printStackTrace();
+			}
+		}
+		
+		return false;
+	}
+	
+	public static void wait(int time) {
+		long t0, t1;
+		t0 = System.currentTimeMillis();
+		t1 = System.currentTimeMillis();
+		
+		while ((t1 - t0) < (time * 1000)) {
+			t1 = System.currentTimeMillis();
+		}
+	}
+	
+	private static DatagramSocket socket;
+	private static InetAddress server;
+	private static int receiverPort;
 	private static final int FILE_SIZE = 1024 * 5;
 	private static final int CLIENT_ISN = 3;
 }
