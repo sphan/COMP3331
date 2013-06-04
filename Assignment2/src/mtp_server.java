@@ -27,6 +27,8 @@ public class mtp_server {
 		if (!file.exists())
 			file.createNewFile();
 		
+		Packet ackReply = null;
+		
 		// run forever
 		while (true) {
 			DatagramPacket request = new DatagramPacket(new byte[FILE_SIZE], FILE_SIZE);
@@ -50,26 +52,35 @@ public class mtp_server {
 			if (connectionEstablished) {
 				if (p.getData() != null && p.getData().length > 0) {
 					System.out.println("Packet with seq # " + p.getSeqNumber() + " received");
+					ackReply = new Packet(serverSeqNum);
+					ackReply.setACK(true);
 					// if the packet received is in the correct order, then write to file.
 					if (p.getSeqNumber() == expectingSeqNum) {
 						fos.write(p.getData());
 						fos.flush();
 						
+						// check if there were any out of order packets
+						// that were in sequence with the packet just received.
+						// set expectingSeqNum accordingly.
+						if (getBufferedData(expectingSeqNum, p.getData().length) != null)
+							expectingSeqNum = getBufferedData(expectingSeqNum, p.getData().length).getSeqNumber() 
+									+ p.getData().length;
+						else
+							expectingSeqNum += p.getData().length;
+						
 						// send ACK to client
-						expectingSeqNum += p.getData().length;
-						Packet ackReply = new Packet(serverSeqNum);
 						ackReply.setAckNumber(expectingSeqNum);
-						ackReply.setACK(true);
 						
 						socket.send(Serialisation.serialise(ackReply, clientAddress, clientPort));
 						System.out.println("Ack number " + ackReply.getAckNumber() + " sent");
+						
+						
 					} else {
-						System.out.println("Out of order.");
-						if (hasPacket(p)) {
-							
-						} else {
-							outOfOrder.add(p);
-						}
+						System.out.println("Out of order. Packet is buffered");
+						outOfOrder.add(p);
+						ackReply.setAckNumber(expectingSeqNum);
+						socket.send(Serialisation.serialise(ackReply, clientAddress, clientPort));
+						System.out.println("Ack # " + ackReply.getAckNumber() + " resent");
 					}
 				}
 			}
@@ -78,6 +89,7 @@ public class mtp_server {
 			// exit the program
 			if (connectionEstablished == false) {
 				System.out.println("Exiting program");
+				fos.close();
 				System.exit(0);
 			}
 		}
@@ -134,18 +146,31 @@ public class mtp_server {
 				clientAddress = null;
 				clientPort = '0';
 				connectionEstablished = false;
+				outOfOrder.clear();
 			}
 		} catch (IOException e) {
 			e.printStackTrace();
 		}
 	}
 	
-	private static boolean hasPacket(Packet packet) {
+	private static Packet getBufferedData(int expectingSeqNum, int dataLength) {
+		int temp = expectingSeqNum;
+		for (int i = 0; i < dataLength; i++) {
+			temp++;
+			Packet tempPacket = new Packet(temp);
+			tempPacket = hasPacket(tempPacket);
+			if (tempPacket != null)
+				return tempPacket;
+		}
+		return null;
+	}
+	
+	private static Packet hasPacket(Packet packet) {
 		for (Packet p : outOfOrder) {
 			if (p.getSeqNumber() == packet.getSeqNumber())
-				return true;
+				return p;
 		}
-		return false;
+		return null;
 	}
 	
 	private static Packet reply;

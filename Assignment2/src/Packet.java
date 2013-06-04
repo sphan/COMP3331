@@ -1,4 +1,6 @@
 import java.io.Serializable;
+import java.util.Calendar;
+import java.util.Date;
 
 
 public class Packet implements Serializable {
@@ -85,6 +87,26 @@ public class Packet implements Serializable {
 		this.data = data;
 	}
 	
+	public void setStartTime(Calendar startTime) {
+		this.startTime = startTime;
+	}
+	
+	/**
+	 * This method calculates the amount of time elapsed since
+	 * the packet was sent out.
+	 * @param startTime The time when the packet was sent out
+	 * @return The number of milliseconds elapsed.
+	 */
+	public long calculateTimeElapse() {
+		Calendar endTime = Calendar.getInstance();
+		Date st = startTime.getTime();
+		Date et = endTime.getTime();
+		long ls = st.getTime();
+		long le = et.getTime();
+		long diff = (le - ls);
+		return diff;
+	}
+	
 	private int seqNumber;
 	private int ackNumber;
 	private boolean SYN;
@@ -94,6 +116,9 @@ public class Packet implements Serializable {
 	private boolean ACK;
 	private boolean URG;
 	private byte[] data;
+	
+	// The time when the packet was sent out.
+	private Calendar startTime;
 	/**
 	 * Default serialization ID
 	 */
