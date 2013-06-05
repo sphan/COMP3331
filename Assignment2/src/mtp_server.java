@@ -21,6 +21,9 @@ public class mtp_server {
 		DatagramSocket socket = new DatagramSocket(myPort);
 		int expectingSeqNum = 0;
 		int serverSeqNum = 10;
+		int dataLength = 0;
+		boolean finished = false;
+		Packet previousPacket = null;
 		Random rand = new Random();
 		server_isn = rand.nextInt();
 		
@@ -52,8 +55,13 @@ public class mtp_server {
 				closeConnection(socket);
 			}
 			
-			if (connectionEstablished) {
+			if (connectionEstablished && finished == false) {
 				if (p.getData() != null && p.getData().length > 0) {
+					if (previousPacket != null)
+						dataLength = previousPacket.getData().length;
+					else
+						dataLength = p.getData().length;
+					previousPacket = p;
 					System.out.println("Packet with seq # " + p.getSeqNumber() + " received");
 					ackReply = new Packet(serverSeqNum);
 					ackReply.setACK(true);
@@ -61,14 +69,19 @@ public class mtp_server {
 					if (p.getSeqNumber() == expectingSeqNum) {
 						fos.write(p.getData());
 						fos.flush();
+						System.out.println(new String(p.getData()));
 						
 						// check if there were any out of order packets
 						// that were in sequence with the packet just received.
 						// set expectingSeqNum accordingly.
-						if (getBufferedData(expectingSeqNum, p.getData().length) != null)
-							expectingSeqNum = getBufferedData(expectingSeqNum, p.getData().length).getSeqNumber() 
-									+ p.getData().length;
-						else
+						Packet temp = getBufferedData(expectingSeqNum, p.getData().length);
+						if (temp != null) {
+							expectingSeqNum = temp.getSeqNumber() + p.getData().length;
+							System.out.println("Expecting seq # " + expectingSeqNum);
+							fos.write(temp.getData());
+							fos.flush();
+							System.out.println(new String(p.getData()));
+						} else
 							expectingSeqNum += p.getData().length;
 						
 						// send ACK to client
@@ -86,8 +99,11 @@ public class mtp_server {
 							ackReply.setAckNumber(expectingSeqNum);
 							socket.send(Serialisation.serialise(ackReply, clientAddress, clientPort));
 							System.out.println("Ack # " + ackReply.getAckNumber() + " resent");
-						} else
+						} else {
 							System.out.println("Packet received before");
+							ackReply.setAckNumber(expectingSeqNum);
+							socket.send(Serialisation.serialise(ackReply, clientAddress, clientPort));
+						}
 					}
 				}
 			}
