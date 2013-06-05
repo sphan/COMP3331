@@ -5,6 +5,7 @@ import java.net.DatagramPacket;
 import java.net.DatagramSocket;
 import java.net.InetAddress;
 import java.util.LinkedList;
+import java.util.Random;
 
 
 public class mtp_server {
@@ -20,6 +21,8 @@ public class mtp_server {
 		DatagramSocket socket = new DatagramSocket(myPort);
 		int expectingSeqNum = 0;
 		int serverSeqNum = 10;
+		Random rand = new Random();
+		server_isn = rand.nextInt();
 		
 		File file = new File(fileName);
 		FileOutputStream fos = new FileOutputStream(file);
@@ -73,14 +76,18 @@ public class mtp_server {
 						
 						socket.send(Serialisation.serialise(ackReply, clientAddress, clientPort));
 						System.out.println("Ack number " + ackReply.getAckNumber() + " sent");
+						receivedCorrectly.add(p);
 						
 						
 					} else {
-						System.out.println("Out of order. Packet is buffered");
-						outOfOrder.add(p);
-						ackReply.setAckNumber(expectingSeqNum);
-						socket.send(Serialisation.serialise(ackReply, clientAddress, clientPort));
-						System.out.println("Ack # " + ackReply.getAckNumber() + " resent");
+						if (hasPacket(p, receivedCorrectly) == null) {
+							System.out.println("Out of order. Packet is buffered");
+							outOfOrder.add(p);
+							ackReply.setAckNumber(expectingSeqNum);
+							socket.send(Serialisation.serialise(ackReply, clientAddress, clientPort));
+							System.out.println("Ack # " + ackReply.getAckNumber() + " resent");
+						} else
+							System.out.println("Packet received before");
 					}
 				}
 			}
@@ -97,7 +104,7 @@ public class mtp_server {
 	}
 	
 	public static void establishConnection(Packet requestPacket, DatagramSocket socket, InetAddress client, int port) throws Exception {
-		reply = new Packet(SERVER_ISN);
+		reply = new Packet(server_isn);
 		reply.setACK(true);
 		reply.setSYN(true);
 		reply.setAckNumber(requestPacket.getSeqNumber() + 1);
@@ -126,7 +133,7 @@ public class mtp_server {
 	
 	public static void closeConnection(DatagramSocket socket) throws Exception {
 		System.out.println("Closing connection");
-		reply = new Packet(SERVER_ISN);
+		reply = new Packet(server_isn);
 		reply.setACK(true);
 		socket.send(Serialisation.serialise(reply, clientAddress, clientPort));
 		System.out.println("Sent ACK for FIN");
@@ -158,15 +165,15 @@ public class mtp_server {
 		for (int i = 0; i < dataLength; i++) {
 			temp++;
 			Packet tempPacket = new Packet(temp);
-			tempPacket = hasPacket(tempPacket);
+			tempPacket = hasPacket(tempPacket, outOfOrder);
 			if (tempPacket != null)
 				return tempPacket;
 		}
 		return null;
 	}
 	
-	private static Packet hasPacket(Packet packet) {
-		for (Packet p : outOfOrder) {
+	private static Packet hasPacket(Packet packet, LinkedList<Packet> list) {
+		for (Packet p : list) {
 			if (p.getSeqNumber() == packet.getSeqNumber())
 				return p;
 		}
@@ -177,8 +184,9 @@ public class mtp_server {
 	private static InetAddress clientAddress;
 	private static int clientPort;
 	private static boolean connectionEstablished = false;
+	private static int server_isn;
 	private static final int FILE_SIZE = 1024 * 5;
-	private static final int SERVER_ISN = 6;
 	private static final int TIME_OUT = 3000;
 	private static LinkedList<Packet> outOfOrder = new LinkedList<Packet>();
+	private static LinkedList<Packet> receivedCorrectly = new LinkedList<Packet>();
 }

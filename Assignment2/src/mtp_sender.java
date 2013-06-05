@@ -5,6 +5,7 @@ import java.net.DatagramPacket;
 import java.net.DatagramSocket;
 import java.net.InetAddress;
 import java.util.Calendar;
+import java.util.Date;
 import java.util.LinkedList;
 import java.util.Random;
 
@@ -30,9 +31,11 @@ public class mtp_sender {
 		timeout = Integer.parseInt(args[5]);
 		pdrop = Float.parseFloat(args[6]);
 		seed = Integer.parseInt(args[7]);
+		Random rand = new Random(seed);
+		client_isn = rand.nextInt();
 		
 		int read = 0; // to store the number of bytes read from file.
-		int seqNum = 0; // sequence number
+		int seqNum = client_isn + 1; // sequence number
 		boolean finished = false; // a flag to see if everything is done
 		
 		// calculate the number of packets can be
@@ -66,9 +69,61 @@ public class mtp_sender {
 		(new Thread(new Runnable() {
 			@Override
 			public void run() {
-				checkTimeout();
+				while (true) {
+					if (calculateTimeElapse() >= timeout) {
+						System.out.println("Packet timed out");
+						Packet p = sentList.peek();
+						try {
+							sendPacket(p);
+							System.out.println("Packet resent");
+							startTime = Calendar.getInstance();
+						} catch (Exception e) {
+							e.printStackTrace();
+						}
+					}
+				}
 			}
 		})).start();
+		
+//		// TODO: to be deleted at the end
+//		// test thread
+//		(new Thread(new Runnable() {
+//
+//			@Override
+//			public void run() {
+//				while (true) {
+//					if (connectionEstablished) {
+//						synchronized (sentList) {
+//							for (Packet p : sentList) {
+////								System.out.println("Checking each packet");
+//								if (p.calculateTimeElapse() > timeout) {
+//									System.out.println("Timedout occured for packet # " + p.getSeqNumber());
+//									try {
+//										sendPacket(p);
+//										p.setStartTime(Calendar.getInstance());
+//										System.out.println("Resent packet");
+//									} catch (Exception e) {
+//										e.printStackTrace();
+//									}
+////									flag = false;
+//								}
+//							}
+//						}
+////						System.out.println("Testing if thread runs");
+////						count++;
+//					}
+//				}
+//				
+//			}
+//			
+//		})).start();
+		
+//		(new Thread(new Runnable() {
+//			@Override
+//			public void run() {
+//				checkTimeout();
+//			}
+//		})).start();
 		
 		// actual file/data sending
 		try {
@@ -76,13 +131,12 @@ public class mtp_sender {
 			int remaining = buff.length;
 			establishConnection();
 			while (!finished) {
-				Random rand = new Random();
-				float k = rand.nextFloat();
-//				System.out.println("k: " + k);
 				// send out packets of the data from the text file.
 				if (connectionEstablished) {
 					if (sentNum < packetNum) {
 						Packet p;
+						
+						// read data from text file
 						read = fis.read(buff, buff.length - remaining, remaining);
 						p = new Packet(seqNum);
 						if (read > 0) {
@@ -101,13 +155,10 @@ public class mtp_sender {
 						seqNum += read;
 						p.setStartTime(Calendar.getInstance());
 						
-						if (k > pdrop) {
-							socket.send(Serialisation.serialise(p, server, receiverPort));
-							System.out.println("Packet segment with seq # " + p.getSeqNumber() + " sent");
-						} else
-							System.out.println("Packet is lost at send");
-						sentNum++;
-						sentList.add(p); // add sequence number to list
+						sendPacket(p);
+						if (sentNum == 1)
+							startTime = Calendar.getInstance();
+						
 					}
 				}
 				
@@ -121,6 +172,29 @@ public class mtp_sender {
 			}
 		} finally {
 			fis.close();
+		}
+	}
+	
+	/**
+	 * 
+	 * @param p
+	 * @throws Exception
+	 */
+	public static void sendPacket(Packet p) throws Exception {
+		Random rand = new Random();
+		float k = rand.nextFloat();
+		
+		if (k > pdrop) {
+			if (k > pdrop) {
+				socket.send(Serialisation.serialise(p, server, receiverPort));
+				System.out.println("Packet segment with seq # " + p.getSeqNumber() + " sent");
+			} else
+				System.out.println("Packet is lost at send");
+			sentNum++;
+			
+			synchronized (sentList) {
+				sentList.add(p); // add sequence number to list
+			}
 		}
 	}
 	
@@ -153,8 +227,13 @@ public class mtp_sender {
 					if (responsePacket.getAckNumber() != previousAck) {
 						System.out.println("Correct ack received");
 						if (sentList.size() > 0 && hasSentOut(previousAck)) {
+							// remove the corresponding packet from sent list
 							System.out.println("Packet was sent");
-							sentList.remove(responsePacket);
+							synchronized (sentList) {
+								System.out.println("Size of sentList before remove: " + sentList.size());
+								removeFromSentList(responsePacket);
+								System.out.println("Size of sentList after remove: " + sentList.size());
+							}
 							sentNum--;
 						}
 						previousAck = responsePacket.getAckNumber();
@@ -166,10 +245,10 @@ public class mtp_sender {
 							fis.read(buff, responsePacket.getAckNumber(), buff.length);
 							Packet p = new Packet(responsePacket.getAckNumber());
 							p.setData(buff);
-							System.out.println(new String(buff));
+//							System.out.println(new String(buff));
 							sentNum++;
-							sentList.add(p);
-							socket.send(Serialisation.serialise(p, server, receiverPort));
+							
+							sendPacket(p);
 							System.out.println("Resend successful");
 							duplicatedAckNum = 0;
 						}
@@ -186,7 +265,7 @@ public class mtp_sender {
 	 * @throws Exception Exception is thrown when establishment failed.
 	 */
 	public static void establishConnection() throws Exception {
-		Packet establishment = new Packet(CLIENT_ISN);
+		Packet establishment = new Packet(client_isn);
 		establishment.setSYN(true);
 		
 		while (!connectionEstablished) {
@@ -225,7 +304,7 @@ public class mtp_sender {
 	 * @throws Exception
 	 */
 	public static boolean closeConnection() throws Exception {
-		Packet close = new Packet(CLIENT_ISN);
+		Packet close = new Packet(client_isn);
 		close.setFIN(true);
 		boolean connectionClosed = false;
 		
@@ -265,31 +344,31 @@ public class mtp_sender {
 		return false;
 	}
 	
-	public static void checkTimeout() {
-		// This thread is used to constantly check if
-		// certain packet has timed out since it was sent.
-//		System.out.println("inside checkTimeout");
-		
+//	public static void checkTimeout() {
+//		// This thread is used to constantly check if
+//		// certain packet has timed out since it was sent.
+////		System.out.println("inside checkTimeout");
+//		
+////				System.out.println("Checking if packet has timeout");
+//		LinkedList<Packet> tempList = copySentList();
+//		while (true) {
+//			if (tempList.size() > 0 && connectionEstablished) {
 //				System.out.println("Checking if packet has timeout");
-		LinkedList<Packet> tempList = copySentList();
-		while (true) {
-			if (tempList.size() > 0 && connectionEstablished) {
-				System.out.println("Checking if packet has timeout");
-				for (Packet p : tempList) {
-//							System.out.println("Time elapsed for packet # " + p.getSeqNumber() + " " + p.calculateTimeElapse());
-					if (p.calculateTimeElapse() >= timeout) {
-//								System.out.println("Packet # " + p.getSeqNumber() + " timed out.");
-						try {
-							socket.send(Serialisation.serialise(p, server, receiverPort));
-							System.out.println("Packet resent due to time out");
-						} catch (Exception e) {
-							e.printStackTrace();
-						}
-					}
-				}
-			}
-		}
-	}
+//				for (Packet p : tempList) {
+////							System.out.println("Time elapsed for packet # " + p.getSeqNumber() + " " + p.calculateTimeElapse());
+//					if (p.calculateTimeElapse() >= timeout) {
+////								System.out.println("Packet # " + p.getSeqNumber() + " timed out.");
+//						try {
+//							socket.send(Serialisation.serialise(p, server, receiverPort));
+//							System.out.println("Packet resent due to time out");
+//						} catch (Exception e) {
+//							e.printStackTrace();
+//						}
+//					}
+//				}
+//			}
+//		}
+//	}
 	
 	/**
 	 * Checks if certain packet has been sent out.
@@ -337,6 +416,29 @@ public class mtp_sender {
 		return tempList;
 	}
 	
+	private static void removeFromSentList(Packet packet) {
+		for (Packet p : sentList) {
+			if (p.getSeqNumber() == packet.getSeqNumber())
+				sentList.remove(p);
+		}
+	}
+	
+	/**
+	 * This method calculates the amount of time elapsed since
+	 * the packet was sent out.
+	 * @param startTime The time when the packet was sent out
+	 * @return The number of milliseconds elapsed.
+	 */
+	private static long calculateTimeElapse() {
+		Calendar endTime = Calendar.getInstance();
+		Date st = startTime.getTime();
+		Date et = endTime.getTime();
+		long ls = st.getTime();
+		long le = et.getTime();
+		long diff = (le - ls);
+		return diff;
+	}
+	
 	private static DatagramSocket socket;
 	private static InetAddress server;
 	private static int receiverPort;
@@ -345,6 +447,8 @@ public class mtp_sender {
 	private static int timeout;
 	private static int sentNum;
 	private static int mss;
+	private static int client_isn;
+	private static Calendar startTime = Calendar.getInstance();
 	private static boolean connectionEstablished = false;
 
 	// a list of all sequence numbers being sent out.
@@ -352,7 +456,6 @@ public class mtp_sender {
 	
 	// constants
 	private static final int FILE_SIZE = 1024 * 5;
-	private static final int CLIENT_ISN = 3;
 	private static final int SOCKET_TIMEOUT = 15000;
 	
 }
