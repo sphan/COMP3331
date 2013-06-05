@@ -21,11 +21,12 @@ public class mtp_server {
 		DatagramSocket socket = new DatagramSocket(myPort);
 		int expectingSeqNum = 0;
 		int serverSeqNum = 10;
-		int dataLength = 0;
+//		int dataLength = 0;
 		boolean finished = false;
-		Packet previousPacket = null;
+//		Packet previousPacket = null;
 		Random rand = new Random();
 		server_isn = rand.nextInt();
+		int previousAck = 0;
 		
 		File file = new File(fileName);
 		FileOutputStream fos = new FileOutputStream(file);
@@ -57,32 +58,30 @@ public class mtp_server {
 			
 			if (connectionEstablished && finished == false) {
 				if (p.getData() != null && p.getData().length > 0) {
-					if (previousPacket != null)
-						dataLength = previousPacket.getData().length;
-					else
-						dataLength = p.getData().length;
-					previousPacket = p;
+//					if (previousPacket != null)
+//						dataLength = previousPacket.getData().length;
+//					else
+//						dataLength = p.getData().length;
+//					previousPacket = p;
 					System.out.println("Packet with seq # " + p.getSeqNumber() + " received");
 					ackReply = new Packet(serverSeqNum);
 					ackReply.setACK(true);
+					System.out.println(p.getAckNumber());
 					// if the packet received is in the correct order, then write to file.
 					if (p.getSeqNumber() == expectingSeqNum) {
 						fos.write(p.getData());
 						fos.flush();
-						System.out.println(new String(p.getData()));
+//						System.out.println(new String(p.getData()));
+						
+						previousAck = expectingSeqNum;
 						
 						// check if there were any out of order packets
 						// that were in sequence with the packet just received.
 						// set expectingSeqNum accordingly.
-						Packet temp = getBufferedData(expectingSeqNum, p.getData().length);
-						if (temp != null) {
-							expectingSeqNum = temp.getSeqNumber() + p.getData().length;
-							System.out.println("Expecting seq # " + expectingSeqNum);
-							fos.write(temp.getData());
-							fos.flush();
-							System.out.println(new String(p.getData()));
-						} else
-							expectingSeqNum += p.getData().length;
+						expectingSeqNum = getBufferedData(expectingSeqNum, fos);
+						if (expectingSeqNum == previousAck)
+							expectingSeqNum = p.getAckNumber();
+						System.out.println("Expecting Seq #: " + expectingSeqNum);
 						
 						// send ACK to client
 						ackReply.setAckNumber(expectingSeqNum);
@@ -176,16 +175,30 @@ public class mtp_server {
 		}
 	}
 	
-	private static Packet getBufferedData(int expectingSeqNum, int dataLength) {
-		int temp = expectingSeqNum;
-		for (int i = 0; i < dataLength; i++) {
-			temp++;
-			Packet tempPacket = new Packet(temp);
-			tempPacket = hasPacket(tempPacket, outOfOrder);
-			if (tempPacket != null)
-				return tempPacket;
+	private static int getBufferedData(int expectingSeqNum, FileOutputStream fos) throws IOException {
+//		int temp = expectingSeqNum;
+//		for (int i = 0; i < dataLength; i++) {
+//			temp++;
+//			Packet tempPacket = new Packet(temp);
+//			tempPacket = hasPacket(tempPacket, outOfOrder);
+//			if (tempPacket != null)
+//				return tempPacket;
+//		}
+//		return null;
+		
+		for (Packet p : outOfOrder) {
+			if (hasPacket(p, receivedCorrectly) == null) {
+				if (p.getSeqNumber() <= expectingSeqNum) {
+					System.out.println("Line 187: " + p.getAckNumber());
+					fos.write(p.getData());
+					fos.flush();
+					expectingSeqNum = p.getAckNumber();
+					System.out.println("Expecting seq # line 192: " + expectingSeqNum);
+					receivedCorrectly.add(p);
+				}
+			}
 		}
-		return null;
+		return expectingSeqNum;
 	}
 	
 	private static Packet hasPacket(Packet packet, LinkedList<Packet> list) {

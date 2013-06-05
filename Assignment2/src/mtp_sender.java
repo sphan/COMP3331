@@ -141,6 +141,8 @@ public class mtp_sender {
 						// send data
 						p.setData(buff);
 						p.setSeqNumber(seqNum);
+						p.setAckNumber(p.getSeqNumber() + read);
+						System.out.println(p.getAckNumber());
 						seqNum += read;
 						p.setStartTime(Calendar.getInstance());
 						
@@ -148,8 +150,10 @@ public class mtp_sender {
 						if (sentNum == 1)
 							startTime = Calendar.getInstance();
 						
-						if (sentList.size() == receivedList.size())
+						if (sentList.size() == receivedList.size()) {
+							System.out.println("List length equal");
 							finished = true;
+						}
 					}
 				}
 				
@@ -179,7 +183,7 @@ public class mtp_sender {
 		if (k > pdrop) {
 			if (p != null) {
 				socket.send(Serialisation.serialise(p, server, receiverPort));
-//				System.out.println("Packet segment with seq # " + p.getSeqNumber() + " sent");
+				System.out.println("Packet segment with seq # " + p.getSeqNumber() + " sent");
 				currentTime = Calendar.getInstance();
 				bw.write(currentTime.getTime() + " " + "Data packet sent to " + server + " " + receiverPort +
 						" with sequence number " + p.getSeqNumber());
