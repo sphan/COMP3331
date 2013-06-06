@@ -1,9 +1,13 @@
 import java.io.File;
 import java.io.FileOutputStream;
 import java.io.IOException;
+import java.io.PrintStream;
 import java.net.DatagramPacket;
 import java.net.DatagramSocket;
 import java.net.InetAddress;
+import java.util.Calendar;
+import java.util.Collections;
+import java.util.Comparator;
 import java.util.LinkedList;
 import java.util.Random;
 
@@ -19,17 +23,18 @@ public class mtp_server {
 		int myPort = Integer.parseInt(args[0]);
 		String fileName = args[1];
 		DatagramSocket socket = new DatagramSocket(myPort);
-		int expectingSeqNum = 0;
 		int serverSeqNum = 10;
-//		int dataLength = 0;
 		boolean finished = false;
-//		Packet previousPacket = null;
 		Random rand = new Random();
-		server_isn = rand.nextInt();
+		server_isn = Math.abs(rand.nextInt());
+		expectingSeqNum = 0;
 		int previousAck = 0;
 		
 		File file = new File(fileName);
 		FileOutputStream fos = new FileOutputStream(file);
+		printStream = new PrintStream(fos);
+		
+		log = new LogFile("mtp_server_log.txt");
 		
 		if (!file.exists())
 			file.createNewFile();
@@ -40,79 +45,73 @@ public class mtp_server {
 		while (true) {
 			DatagramPacket request = new DatagramPacket(new byte[FILE_SIZE], FILE_SIZE);
 			socket.receive(request);
-			System.out.println("Received data");
 			
 			Packet p = Serialisation.deserialise(request);
 			
 			// if packet received is a SYN, establish a connection.
 			if (p.isSYN()) {
-				System.out.println("SYN packet received");
+				currentTime = Calendar.getInstance();
+				log.writeLog(currentTime.getTime() + " " + "Received SYN packet from " + clientAddress + " " + clientPort +
+						" with sequence number " + p.getSeqNumber());
 				establishConnection(p, socket, request.getAddress(), request.getPort());
 			}
 			
 			// if packet received is a FIN, establish a connection.
 			if (p.isFIN()) {
-				System.out.println("FIN received");
+				writeToFile();
+				currentTime = Calendar.getInstance();
+				log.writeLog(currentTime.getTime() + " " + "Received FYN packet from " + clientAddress + " " + clientPort +
+						" with sequence number " + p.getSeqNumber());
 				closeConnection(socket);
 			}
 			
 			if (connectionEstablished && finished == false) {
 				if (p.getData() != null && p.getData().length > 0) {
-//					if (previousPacket != null)
-//						dataLength = previousPacket.getData().length;
-//					else
-//						dataLength = p.getData().length;
-//					previousPacket = p;
-					System.out.println("Packet with seq # " + p.getSeqNumber() + " received");
+					currentTime = Calendar.getInstance();
+					log.writeLog(currentTime.getTime() + " " + "Received data packet from " + clientAddress + " " + clientPort +
+							" with sequence number " + p.getSeqNumber());
 					ackReply = new Packet(serverSeqNum);
 					ackReply.setACK(true);
-					System.out.println(p.getAckNumber());
 					// if the packet received is in the correct order, then write to file.
 					if (p.getSeqNumber() == expectingSeqNum) {
-						fos.write(p.getData());
-						fos.flush();
-//						System.out.println(new String(p.getData()));
-						
 						previousAck = expectingSeqNum;
 						
 						// check if there were any out of order packets
 						// that were in sequence with the packet just received.
 						// set expectingSeqNum accordingly.
-						expectingSeqNum = getBufferedData(expectingSeqNum, fos);
+						expectingSeqNum = getBufferedData(expectingSeqNum, p.getAckNumber(), fos);
 						if (expectingSeqNum == previousAck)
 							expectingSeqNum = p.getAckNumber();
-						System.out.println("Expecting Seq #: " + expectingSeqNum);
 						
 						// send ACK to client
 						ackReply.setAckNumber(expectingSeqNum);
 						
 						socket.send(Serialisation.serialise(ackReply, clientAddress, clientPort));
-						System.out.println("Ack number " + ackReply.getAckNumber() + " sent");
-						receivedCorrectly.add(p);
+						currentTime = Calendar.getInstance();
+						log.writeLog(currentTime.getTime() + " " + "Sent ACK packet to " + clientAddress + " " + clientPort +
+								" with acknowledge number " + ackReply.getAckNumber());
+						if (hasPacket(p.getSeqNumber(), receivedCorrectly) == null)
+							receivedCorrectly.add(p);
 						
 						
 					} else {
-						if (hasPacket(p, receivedCorrectly) == null) {
-							System.out.println("Out of order. Packet is buffered");
-							outOfOrder.add(p);
+						if (hasPacket(p.getSeqNumber(), receivedCorrectly) == null) {
+							if (hasPacket(p.getSeqNumber(), outOfOrder) == null)
+								outOfOrder.add(p);
 							ackReply.setAckNumber(expectingSeqNum);
 							socket.send(Serialisation.serialise(ackReply, clientAddress, clientPort));
-							System.out.println("Ack # " + ackReply.getAckNumber() + " resent");
+							currentTime = Calendar.getInstance();
+							log.writeLog(currentTime.getTime() + " " + "Sent ACK packet to " + clientAddress + " " + clientPort +
+									" with acknowledge number " + ackReply.getAckNumber());
 						} else {
-							System.out.println("Packet received before");
 							ackReply.setAckNumber(expectingSeqNum);
 							socket.send(Serialisation.serialise(ackReply, clientAddress, clientPort));
+							currentTime = Calendar.getInstance();
+							log.writeLog(currentTime.getTime() + " " + "Sent ACK packet to " + clientAddress + " " + clientPort +
+									" with acknowledge number " + ackReply.getAckNumber());
 						}
 					}
 				}
-			}
-			
-			// if the connection is no longer in established state
-			// exit the program
-			if (connectionEstablished == false) {
-				System.out.println("Exiting program");
-				fos.close();
-				System.exit(0);
 			}
 		}
 		
@@ -126,7 +125,9 @@ public class mtp_server {
 		
 		// send SYNACK
 		socket.send(Serialisation.serialise(reply, client, port));
-		System.out.println("SYNACK sent");
+		currentTime = Calendar.getInstance();
+		log.writeLog(currentTime.getTime() + " " + "Sent SYNACK packet to " + clientAddress + " " + clientPort +
+				" with acknowledge number " + reply.getSeqNumber());
 		
 		try {
 			// try to receive an ACK for SYNACK
@@ -136,10 +137,13 @@ public class mtp_server {
 			Packet p = Serialisation.deserialise(responseFromClient);
 			if (p.isACK()) {
 				// ACK received, establish a connection
-				System.out.println("ACK for SYNACK received");
+				currentTime = Calendar.getInstance();
+				log.writeLog(currentTime.getTime() + " " + "Received ACK for SYNACK packet from " + clientAddress + " " + clientPort +
+						" with sequence number " + p.getSeqNumber());
 				clientAddress = responseFromClient.getAddress();
 				clientPort = responseFromClient.getPort();
 				connectionEstablished = true;
+				expectingSeqNum = p.getSeqNumber();
 			}
 		} catch (IOException e) {
 			e.printStackTrace();
@@ -147,16 +151,19 @@ public class mtp_server {
 	}
 	
 	public static void closeConnection(DatagramSocket socket) throws Exception {
-		System.out.println("Closing connection");
 		reply = new Packet(server_isn);
 		reply.setACK(true);
 		socket.send(Serialisation.serialise(reply, clientAddress, clientPort));
-		System.out.println("Sent ACK for FIN");
+		currentTime = Calendar.getInstance();
+		log.writeLog(currentTime.getTime() + " " + "Sent ACK for FIN packet to " + clientAddress + " " + clientPort +
+				" with sequence number " + reply.getSeqNumber());
 		
 		reply.setACK(false);
 		reply.setFIN(true);
 		socket.send(Serialisation.serialise(reply, clientAddress, clientPort));
-		System.out.println("Sent FIN from server");
+		currentTime = Calendar.getInstance();
+		log.writeLog(currentTime.getTime() + " " + "Sent FIN packet to " + clientAddress + " " + clientPort +
+				" with sequence number " + reply.getSeqNumber());
 		
 		try {
 			DatagramPacket response = new DatagramPacket(new byte[FILE_SIZE], FILE_SIZE);
@@ -164,49 +171,58 @@ public class mtp_server {
 			
 			Packet p = Serialisation.deserialise(response);
 			if (p.isACK()) {
-				System.out.println("Received ACK for FIN");
+				currentTime = Calendar.getInstance();
+				log.writeLog(currentTime.getTime() + " " + "Received ACK for FIN packet from " + clientAddress + " " + clientPort +
+						" with sequence number " + p.getSeqNumber());
+				writeToFile();
+				System.out.println("Received successful.");
 				clientAddress = null;
 				clientPort = '0';
 				connectionEstablished = false;
 				outOfOrder.clear();
+				System.exit(0);
 			}
 		} catch (IOException e) {
 			e.printStackTrace();
 		}
 	}
 	
-	private static int getBufferedData(int expectingSeqNum, FileOutputStream fos) throws IOException {
-//		int temp = expectingSeqNum;
-//		for (int i = 0; i < dataLength; i++) {
-//			temp++;
-//			Packet tempPacket = new Packet(temp);
-//			tempPacket = hasPacket(tempPacket, outOfOrder);
-//			if (tempPacket != null)
-//				return tempPacket;
-//		}
-//		return null;
-		
+	private static int getBufferedData(int expectingSeqNum, int ack, FileOutputStream fos) throws IOException {
 		for (Packet p : outOfOrder) {
-			if (hasPacket(p, receivedCorrectly) == null) {
-				if (p.getSeqNumber() <= expectingSeqNum) {
-					System.out.println("Line 187: " + p.getAckNumber());
-					fos.write(p.getData());
-					fos.flush();
+			if (hasPacket(p.getAckNumber(), receivedCorrectly) == null) {
+				if (p.getSeqNumber() == ack) {
 					expectingSeqNum = p.getAckNumber();
-					System.out.println("Expecting seq # line 192: " + expectingSeqNum);
 					receivedCorrectly.add(p);
+					ack = p.getAckNumber();
 				}
 			}
 		}
 		return expectingSeqNum;
 	}
 	
-	private static Packet hasPacket(Packet packet, LinkedList<Packet> list) {
+	private static Packet hasPacket(int seqNum, LinkedList<Packet> list) {
 		for (Packet p : list) {
-			if (p.getSeqNumber() == packet.getSeqNumber())
+			if (p.getSeqNumber() == seqNum)
 				return p;
 		}
 		return null;
+	}
+	
+	private static void writeToFile() {
+		Collections.sort(receivedCorrectly, new Comparator<Packet>() {
+			@Override
+			public int compare(Packet o1, Packet o2) {
+				if (o1.getSeqNumber() < o2.getSeqNumber())
+					return -1;
+				else if (o1.getSeqNumber() > o2.getSeqNumber())
+					return 1;
+				return 0;
+			}
+		});
+		
+		for (Packet p : receivedCorrectly) {
+			printStream.print(new String(p.getData()));
+		}
 	}
 	
 	private static Packet reply;
@@ -215,7 +231,10 @@ public class mtp_server {
 	private static boolean connectionEstablished = false;
 	private static int server_isn;
 	private static final int FILE_SIZE = 1024 * 5;
-	private static final int TIME_OUT = 3000;
+	private static PrintStream printStream;
+	private static Calendar currentTime = Calendar.getInstance();
+	private static LogFile log;
+	private static int expectingSeqNum;
 	private static LinkedList<Packet> outOfOrder = new LinkedList<Packet>();
 	private static LinkedList<Packet> receivedCorrectly = new LinkedList<Packet>();
 }
